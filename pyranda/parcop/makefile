@@ -28,6 +28,13 @@ blueos_3_ppc64le_ib.ibm.mpif90 = /usr/tce/packages/spectrum-mpi/spectrum-mpi-201
 blueos_3_ppc64le_ib.gnu.mpif90 = /usr/tcetmp/bin/mpigfortran
 blueos_3_ppc64le_ib.python     = /usr/tcetmp/bin/python
 
+cedar.python       = /usr/bin/python3.6
+cedar.cce.mpif90   = ftn
+redwood.python     = /usr/bin/python3.6
+redwood.cce.mpif90 = ftn
+pinoak.python     = /usr/bin/python3.6
+pinoak.cce.mpif90 = ftn
+
 gnu.fflags   = -fPIC -ffree-form -ffree-line-length-0 -fbackslash
 intel.fflags = -fPIC -O3 -cpp
 # it's likely that mpiclang is using gfortran
@@ -37,16 +44,28 @@ ibm.fflags   = -fPIC -qxlf2003=polymorphic $(ibm.linkflags) -qsuffix=cpp=f90:f=f
 ibm.lopts    = -qmkshrobj
 pgi.fflags   = -fPIC
 
+cce.fflags    = -homp -ffree -fPIC -eF
+cce.lopts     = -homp -fPIC
+cce.linkflags = $(cce.lopts)
+cce.cedar.python   = $(cedar.python)
+cce.redwood.python = $(redwood.python)
+cce.pinoak.python = $(redwood.python)
+
+
 sys_type = $(call use-if,$(SYS_TYPE),$(shell uname))
 python  ?= $(call use-if,$($(compiler).$(sys_type).python),$(shell which python))
-mpif90  ?= $(call use-if,$($(sys_type).$(compiler).mpif90),$(shell which mpif90))
+#mpif90  ?= $(call use-if,$($(sys_type).$(compiler).mpif90),$(shell which mpif90))
+mpif90  ?= $(call use-if,$($(sys_type).$(compiler).mpif90), mpif90)
 fcomp   ?= $(call use-if,$(compiler),$(shell ./vendor.sh $(mpif90)))
-mpicc   ?= $(dir $(mpif90))mpicc
+#mpicc   ?= $(dir $(mpif90))mpicc
+mpicc   ?= cc
 ccomp   ?= $(call use-if,$(compiler),$(shell ./vendor.sh $(mpicc)))
 # make sure we use this python's f2py unless the user wants something else
 f2py    ?= $(python) -c 'import numpy.f2py; numpy.f2py.main()'
 fflags  ?= $($(fcomp).fflags)
 lopts   ?= $(call use-if,$($(fcomp).lopts),-shared)
+fortranlinkflags ?= $($(compiler).linkflags)
+#fortranlinkflags ?= $(ibm.linkflags)
 
 #
 # Python and numpy directories for use when building the f2py wrapped module
@@ -107,7 +126,8 @@ miniApp: libparcop.a parcop.o miniApp.o
 	$(mpif90) miniApp.o parcop.o libparcop.a -o $@
 
 miniAppGPU: libparcop.a parcop.o miniApp.o
-	$(mpif90) $(ibm.linkflags) miniApp.o parcop.o libparcop.a -o $@
+	$(mpif90) $(fortranlinkflags) miniApp.o parcop.o libparcop.a -o $@
+#	$(mpif90) $(ibm.linkflags) miniApp.o parcop.o libparcop.a -o $@
 
 info:
 	@echo "sys_type:  $(sys_type)"
@@ -118,6 +138,7 @@ info:
 	@echo "fflags:    $(fflags)"
 	@echo "fcompiler: $(fcomp)"
 	@echo "ccompiler: $(ccomp)"
+	@echo "fortranlinkflags:    $(fortranlinkflags)"
 
 clean:
 	rm -rf *.o *.mod test_pent *.so *.pyf *.pyc libparcop.a *.dSYM parcopmodule.c parcop-f2pywrappers*.f90
